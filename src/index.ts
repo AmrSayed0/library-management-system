@@ -7,6 +7,7 @@ import bodyParser from "body-parser";
 
 import bookRoutes from "./features/book/book.routes";
 import borrowerRoutes from "./features/borrower/borrower.routes";
+import borrowingRoutes from "./features/borrowing/borrowing.routes";
 
 dotenv.config({ override: true });
 const app = express();
@@ -21,6 +22,7 @@ app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
 /* ROUTES */
 app.use("/api/v1", bookRoutes);
 app.use("/api/v1", borrowerRoutes);
+app.use("/api/v1", borrowingRoutes);
 
 const port = Number(process.env.PORT) || 3002;
 app.listen(port, "0.0.0.0", () => {
