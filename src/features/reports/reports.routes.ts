@@ -9,12 +9,15 @@ import {
   getBorrowingReport,
 } from "./reports.controller";
 import { exportRateLimit } from "../../middlewares/rateLimiters";
+import { authenticateToken, requireLibrarian } from "../../middlewares/auth";
 
 const router = Router();
 
-router.get("/reports/borrowings", getBorrowingReport);
+router.get("/reports/borrowings", authenticateToken, getBorrowingReport);
 
 const exportRouter = Router();
+exportRouter.use(authenticateToken);
+exportRouter.use(requireLibrarian);
 exportRouter.use(exportRateLimit);
 
 exportRouter.get("/borrowings/csv", exportBorrowingsCSV);

@@ -8,6 +8,7 @@ import rateLimit from "express-rate-limit";
 import { errorHandler } from "./middlewares/errorHandler";
 import { logger } from "./middlewares/logger";
 
+import authRoutes from "./features/auth/auth.routes";
 import bookRoutes from "./features/book/book.routes";
 import borrowerRoutes from "./features/borrower/borrower.routes";
 import borrowingRoutes from "./features/borrowing/borrowing.routes";
@@ -29,6 +30,7 @@ app.use((req, res, next) => {
 });
 
 /* ROUTES */
+app.use("/api/v1", authRoutes);
 app.use("/api/v1", bookRoutes);
 app.use("/api/v1", borrowerRoutes);
 app.use("/api/v1", borrowingRoutes);

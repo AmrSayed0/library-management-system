@@ -14,6 +14,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  role      UserRole @default(USER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([username])
+  @@index([email])
+}
+
+enum UserRole {
+  ADMIN
+  LIBRARIAN
+  USER
+}
+
 model Book {
   id        Int      @id @default(autoincrement())
   title     String

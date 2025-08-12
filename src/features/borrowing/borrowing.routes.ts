@@ -7,12 +7,25 @@ import {
   returnBook,
 } from "./borrowing.controller";
 import { borrowingRateLimit } from "../../middlewares/rateLimiters";
+import { authenticateToken, requireLibrarian } from "../../middlewares/auth";
 
 const router = Router();
 
-router.post("/borrowings", borrowingRateLimit, checkoutBook);
-router.get("/borrowings", getAllBorrowings);
-router.put("/borrowings/:id/return", borrowingRateLimit, returnBook);
-router.get("/borrowings/overdue", getOverdueBooks);
+router.post(
+  "/borrowings",
+  authenticateToken,
+  requireLibrarian,
+  borrowingRateLimit,
+  checkoutBook
+);
+router.get("/borrowings", authenticateToken, getAllBorrowings);
+router.put(
+  "/borrowings/:id/return",
+  authenticateToken,
+  requireLibrarian,
+  borrowingRateLimit,
+  returnBook
+);
+router.get("/borrowings/overdue", authenticateToken, getOverdueBooks);
 
 export default router;
