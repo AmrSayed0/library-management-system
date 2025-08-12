@@ -519,3 +519,331 @@ export const exportOverdueLastMonthXLSX = async (
     res.status(400).json({ error: (error as Error).message });
   }
 };
+
+export const exportAllBorrowingsLastMonthCSV = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const now = new Date();
+    const lastMonth = subMonths(now, 1);
+
+    // Get all borrowings from the last month (regardless of status)
+    const borrowings = await prisma.borrowing.findMany({
+      where: {
+        checkoutDate: { gte: lastMonth, lte: now },
+      },
+      include: { book: true, borrower: true },
+      orderBy: { checkoutDate: "desc" },
+    });
+
+    // Transform data for CSV export with comprehensive information
+    const csvData = borrowings.map((borrowing) => {
+      const daysFromCheckout = Math.floor(
+        (now.getTime() - borrowing.checkoutDate.getTime()) /
+          (1000 * 60 * 60 * 24)
+      );
+
+      let status = "Active";
+      let daysOverdue = null;
+
+      if (borrowing.returnDate) {
+        status = "Returned";
+        const returnDays = Math.floor(
+          (borrowing.returnDate.getTime() - borrowing.checkoutDate.getTime()) /
+            (1000 * 60 * 60 * 24)
+        );
+        daysOverdue = `Returned after ${returnDays} days`;
+      } else if (borrowing.dueDate < now) {
+        status = "Overdue";
+        daysOverdue = Math.floor(
+          (now.getTime() - borrowing.dueDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+      }
+
+      return {
+        id: borrowing.id,
+        bookTitle: borrowing.book.title,
+        bookAuthor: borrowing.book.author,
+        bookISBN: borrowing.book.isbn,
+        bookLocation: borrowing.book.location || "Not specified",
+        borrowerName: borrowing.borrower.name,
+        borrowerEmail: borrowing.borrower.email,
+        checkoutDate: borrowing.checkoutDate.toISOString().split("T")[0],
+        dueDate: borrowing.dueDate.toISOString().split("T")[0],
+        returnDate: borrowing.returnDate
+          ? borrowing.returnDate.toISOString().split("T")[0]
+          : "Not returned",
+        status: status,
+        daysFromCheckout: daysFromCheckout,
+        daysOverdueOrReturned: daysOverdue || "N/A",
+      };
+    });
+
+    const fields = [
+      "id",
+      "bookTitle",
+      "bookAuthor",
+      "bookISBN",
+      "bookLocation",
+      "borrowerName",
+      "borrowerEmail",
+      "checkoutDate",
+      "dueDate",
+      "returnDate",
+      "status",
+      "daysFromCheckout",
+      "daysOverdueOrReturned",
+    ];
+
+    const json2csvParser = new Parser({ fields });
+    const csv = json2csvParser.parse(csvData);
+
+    const fromDate = lastMonth.toISOString().split("T")[0];
+    const toDate = now.toISOString().split("T")[0];
+
+    res.header("Content-Type", "text/csv");
+    res.attachment(`all_borrowings_last_month_${fromDate}_to_${toDate}.csv`);
+    res.send(csv);
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message });
+  }
+};
+
+export const exportAllBorrowingsLastMonthXLSX = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const now = new Date();
+    const lastMonth = subMonths(now, 1);
+
+    // Get all borrowings from the last month (regardless of status)
+    const borrowings = await prisma.borrowing.findMany({
+      where: {
+        checkoutDate: { gte: lastMonth, lte: now },
+      },
+      include: { book: true, borrower: true },
+      orderBy: { checkoutDate: "desc" },
+    });
+
+    // Create workbook and worksheet
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("All Borrowings - Last Month");
+
+    // Add title and date range
+    worksheet.mergeCells("A1:M1");
+    worksheet.getCell("A1").value = "Complete Borrowings Report - Last Month";
+    worksheet.getCell("A1").font = { bold: true, size: 16 };
+    worksheet.getCell("A1").alignment = { horizontal: "center" };
+
+    worksheet.mergeCells("A2:M2");
+    worksheet.getCell(
+      "A2"
+    ).value = `Period: ${lastMonth.toDateString()} to ${now.toDateString()}`;
+    worksheet.getCell("A2").font = { italic: true };
+    worksheet.getCell("A2").alignment = { horizontal: "center" };
+
+    // Add empty row
+    worksheet.addRow([]);
+
+    // Add headers starting from row 4
+    const headerRow = worksheet.addRow([
+      "ID",
+      "Book Title",
+      "Book Author",
+      "Book ISBN",
+      "Book Location",
+      "Borrower Name",
+      "Borrower Email",
+      "Checkout Date",
+      "Due Date",
+      "Return Date",
+      "Status",
+      "Days from Checkout",
+      "Days Overdue/Returned",
+    ]);
+
+    // Style the header row
+    headerRow.font = { bold: true };
+    headerRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF4CAF50" },
+    };
+
+    // Set column widths
+    worksheet.columns = [
+      { width: 10 }, // ID
+      { width: 30 }, // Book Title
+      { width: 25 }, // Book Author
+      { width: 15 }, // Book ISBN
+      { width: 15 }, // Book Location
+      { width: 25 }, // Borrower Name
+      { width: 30 }, // Borrower Email
+      { width: 15 }, // Checkout Date
+      { width: 15 }, // Due Date
+      { width: 15 }, // Return Date
+      { width: 12 }, // Status
+      { width: 18 }, // Days from Checkout
+      { width: 20 }, // Days Overdue/Returned
+    ];
+
+    // Add data with color coding
+    borrowings.forEach((borrowing) => {
+      const daysFromCheckout = Math.floor(
+        (now.getTime() - borrowing.checkoutDate.getTime()) /
+          (1000 * 60 * 60 * 24)
+      );
+
+      let status = "Active";
+      let daysOverdueOrReturned = "N/A";
+
+      if (borrowing.returnDate) {
+        status = "Returned";
+        const returnDays = Math.floor(
+          (borrowing.returnDate.getTime() - borrowing.checkoutDate.getTime()) /
+            (1000 * 60 * 60 * 24)
+        );
+        daysOverdueOrReturned = `Returned after ${returnDays} days`;
+      } else if (borrowing.dueDate < now) {
+        status = "Overdue";
+        daysOverdueOrReturned = `${Math.floor(
+          (now.getTime() - borrowing.dueDate.getTime()) / (1000 * 60 * 60 * 24)
+        )} days overdue`;
+      }
+
+      const dataRow = worksheet.addRow([
+        borrowing.id,
+        borrowing.book.title,
+        borrowing.book.author,
+        borrowing.book.isbn,
+        borrowing.book.location || "Not specified",
+        borrowing.borrower.name,
+        borrowing.borrower.email,
+        borrowing.checkoutDate.toISOString().split("T")[0],
+        borrowing.dueDate.toISOString().split("T")[0],
+        borrowing.returnDate
+          ? borrowing.returnDate.toISOString().split("T")[0]
+          : "Not returned",
+        status,
+        daysFromCheckout,
+        daysOverdueOrReturned,
+      ]);
+
+      // Color code rows based on status
+      if (status === "Returned") {
+        dataRow.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFE8F5E8" },
+        }; // Light green
+      } else if (status === "Overdue") {
+        dataRow.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFFFE8E8" },
+        }; // Light red
+      } else if (status === "Active") {
+        dataRow.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFF0F8FF" },
+        }; // Light blue
+      }
+    });
+
+    // Calculate statistics
+    const totalBorrowings = borrowings.length;
+    const returnedCount = borrowings.filter(
+      (b) => b.returnDate !== null
+    ).length;
+    const overdueCount = borrowings.filter(
+      (b) => b.returnDate === null && b.dueDate < now
+    ).length;
+    const activeCount = borrowings.filter(
+      (b) => b.returnDate === null && b.dueDate >= now
+    ).length;
+
+    // Add summary section
+    worksheet.addRow([]);
+    const summaryTitleRow = worksheet.addRow(["Summary Statistics"]);
+    summaryTitleRow.font = { bold: true, size: 14 };
+
+    worksheet.addRow(["Total Borrowings (Last Month):", totalBorrowings]);
+    worksheet.addRow(["Returned Books:", returnedCount]);
+    worksheet.addRow(["Currently Active:", activeCount]);
+    worksheet.addRow(["Currently Overdue:", overdueCount]);
+    worksheet.addRow([
+      "Return Rate:",
+      `${
+        totalBorrowings > 0
+          ? Math.round((returnedCount / totalBorrowings) * 100)
+          : 0
+      }%`,
+    ]);
+    worksheet.addRow([
+      "Overdue Rate:",
+      `${
+        totalBorrowings > 0
+          ? Math.round((overdueCount / totalBorrowings) * 100)
+          : 0
+      }%`,
+    ]);
+
+    worksheet.addRow([]);
+    worksheet.addRow(["Report Details:"]);
+    worksheet.addRow([
+      "Report Period:",
+      `${lastMonth.toDateString()} to ${now.toDateString()}`,
+    ]);
+    worksheet.addRow(["Generated On:", now.toDateString()]);
+    worksheet.addRow(["Generated At:", now.toTimeString().split(" ")[0]]);
+
+    // Get most borrowed books in the period
+    const bookBorrowCounts: { [key: string]: number } = {};
+    borrowings.forEach((b) => {
+      const key = `${b.book.title} by ${b.book.author}`;
+      bookBorrowCounts[key] = (bookBorrowCounts[key] || 0) + 1;
+    });
+
+    const topBooks = Object.entries(bookBorrowCounts)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
+      .slice(0, 5);
+
+    if (topBooks.length > 0) {
+      worksheet.addRow([]);
+      worksheet.addRow(["Top 5 Most Borrowed Books:"]);
+      topBooks.forEach(([book, count], index) => {
+        worksheet.addRow([`${index + 1}. ${book}:`, `${count} time(s)`]);
+      });
+    }
+
+    // Style summary section
+    const summaryStartRow =
+      worksheet.rowCount -
+      (12 + (topBooks.length > 0 ? topBooks.length + 2 : 0));
+    for (let i = summaryStartRow; i <= worksheet.rowCount; i++) {
+      worksheet.getRow(i).font = { bold: true };
+    }
+
+    const fromDate = lastMonth.toISOString().split("T")[0];
+    const toDate = now.toISOString().split("T")[0];
+
+    // Set response headers
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=all_borrowings_last_month_${fromDate}_to_${toDate}.xlsx`
+    );
+
+    // Write to response
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message });
+  }
+};
