@@ -312,4 +312,4 @@ The system uses PostgreSQL with the following main entities:
 
 ## Production Deployment
 
-Backend API: Hosted on DigitalOcean - [Live Endpoint](http://library-management-api.amrdev.me)
+**Backend APIs:** Deployed on DigitalOcean: [View Here](https://library-management-system-9ywxz.ondigitalocean.app/api/v1/books)
