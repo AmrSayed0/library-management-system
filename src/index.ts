@@ -11,6 +11,7 @@ import { logger } from "./middlewares/logger";
 import bookRoutes from "./features/book/book.routes";
 import borrowerRoutes from "./features/borrower/borrower.routes";
 import borrowingRoutes from "./features/borrowing/borrowing.routes";
+import reportsRoutes from "./features/reports/reports.routes";
 
 dotenv.config({ override: true });
 const app = express();
@@ -31,6 +32,7 @@ app.use((req, res, next) => {
 app.use("/api/v1", bookRoutes);
 app.use("/api/v1", borrowerRoutes);
 app.use("/api/v1", borrowingRoutes);
+app.use("/api/v1", reportsRoutes);
 
 app.use(errorHandler);
 
